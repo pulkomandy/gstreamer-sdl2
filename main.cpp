@@ -122,8 +122,21 @@ static GstElement* makeSource()
 // Work function - this is where all the fun happens!
 static bool texture()
 {
+	// Create the pipeline and add all the elements to it
+
+	// PIPELINE ---------------------------------------------------------------
+	GstElement* pipeline = gst_pipeline_new("test-pipeline");
+
 	// SOURCE -----------------------------------------------------------------
 	GstElement* source = makeSource();
+	if (source == nullptr) {
+		g_printerr("Unable to create source element.\n");
+		return -6;
+	}
+	if (!gst_bin_add(GST_BIN(pipeline), source)) {
+		g_printerr("Unable to add source element to the pipeline.\n");
+		return -4;
+	}
 
 	// SINK -------------------------------------------------------------------
 	app_sink = gst_element_factory_make ("appsink", "app_sink");
@@ -136,13 +149,9 @@ static bool texture()
 	gst_app_sink_set_callbacks(app_sink, &callbacks, NULL, NULL);
 #endif
   
-	// PIPELINE ---------------------------------------------------------------
-	// Create the pipeline and add all the elements to it
-	GstElement* pipeline = gst_pipeline_new("test-pipeline");
-	// gst_bin_add_many doesn't allow easy error checking. Let's go the boring way...
-	if (!gst_bin_add(GST_BIN(pipeline), source)) {
-		g_printerr("Unable to add source element to the pipeline.\n");
-		return -4;
+	if (app_sink == nullptr) {
+		g_printerr("Unable to create sink element.\n");
+		return -7;
 	}
 	if (!gst_bin_add(GST_BIN(pipeline), app_sink)) {
 		g_printerr("Unable to add sink element to the pipeline.\n");
@@ -174,11 +183,12 @@ static bool texture()
 		SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
 	if (tex == nullptr){
 		std::cout << "SDL_CreateTexture Error: " << SDL_GetError() << std::endl;
-		return false;
+		return -9;
 	}
 
 	// TODO how do we wait for the playing to end?
 	bool playing = true;
+	puts("Everything initialized ok, starting replay...");
 	while(playing)
 	{
 		SDL_RenderClear(ren);
@@ -189,6 +199,7 @@ static bool texture()
 			SDL_RenderPresent(ren);
 		}
 	}
+	puts("Playing video finished. Cleaning up and leaving.");
 
 	SDL_DestroyTexture(tex);
 
