@@ -101,26 +101,27 @@ static void pad_added_handler (GstElement *src, GstPad *new_pad, void *) {
 }
 
 
-static GstElement* makeSource()
+static GstElement* makeSource(const char* uri)
 {
-#if 0
-	// Using the "video test source"
-	GstElement* source = gst_element_factory_make ("videotestsrc", "source");
-	g_object_set (source, "pattern", 0, NULL);
-#else
-	// Using an actual video file
-	GstElement* source = gst_element_factory_make ("uridecodebin", "source");
-	// Warning: the URI must be absolute.
-	g_object_set(source, "uri", "file:/home/pulkomandy/small.ogv", NULL);
-  	g_signal_connect (source, "pad-added", G_CALLBACK (pad_added_handler), NULL);
-#endif
+	GstElement* source;
+	if (uri == NULL) {
+		// Using the "video test source"
+		source = gst_element_factory_make ("videotestsrc", "source");
+		g_object_set (source, "pattern", 0, NULL);
+	} else {
+		// Using an actual video file
+		source = gst_element_factory_make ("uridecodebin", "source");
+		// Warning: the URI must be absolute.
+		g_object_set(source, "uri", uri, NULL);
+  		g_signal_connect (source, "pad-added", G_CALLBACK (pad_added_handler), NULL);
+	}
 	
 	return source;
 }
 
 
 // Work function - this is where all the fun happens!
-static bool texture()
+static bool texture(const char* uri)
 {
 	// Create the pipeline and add all the elements to it
 
@@ -128,7 +129,7 @@ static bool texture()
 	GstElement* pipeline = gst_pipeline_new("test-pipeline");
 
 	// SOURCE -----------------------------------------------------------------
-	GstElement* source = makeSource();
+	GstElement* source = makeSource(uri);
 	if (source == nullptr) {
 		g_printerr("Unable to create source element.\n");
 		return -6;
@@ -137,6 +138,8 @@ static bool texture()
 		g_printerr("Unable to add source element to the pipeline.\n");
 		return -4;
 	}
+
+	puts("The source element is created");
 
 	// SINK -------------------------------------------------------------------
 	app_sink = gst_element_factory_make ("appsink", "app_sink");
@@ -159,17 +162,20 @@ static bool texture()
 	}
 
 	// Connect the source to the app_sink
-#if 0
-	// Using the "videotestsrc" - static connection
-	if (!gst_element_link(source, (GstElement*)app_sink)) {
-		g_printerr("Unable to link the source to the sink.\n");
-		return -3;
-		gst_object_unref (pipeline);
+	if (uri == NULL)
+	{
+		// Using the "videotestsrc" - static connection
+		if (!gst_element_link(source, (GstElement*)app_sink)) {
+			g_printerr("Unable to link the source to the sink.\n");
+			return -3;
+			gst_object_unref (pipeline);
+		}
+	} else {
+		// Using the "uridecodebin" - connctions must be done dynamically, when
+		// the pads are created.
 	}
-#else
-	// Using the "uridecodebin" - connctions must be done dynamically, when the
-	// pads are created.
-#endif
+
+	puts("The sink element is created.");
 
 	/* Start playing */
 	if (gst_element_set_state(pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
@@ -242,7 +248,7 @@ int main(int argc, char **argv){
 	}
 
 	// Do work
-	if (!texture())
+	if (!texture(argc > 1 ? argv[1] : NULL))
 		ret = 1;
 
 	// Cleanup and teardown
